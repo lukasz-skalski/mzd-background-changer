@@ -1,0 +1,121 @@
+#!/bin/sh
+#
+# Copyright 2018 Skalski Embedded Technologies <contact@lukasz-skalski.com>
+#
+# This file is part of MZD Background Changer.
+#
+# MZD Background Changer is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as published
+# by the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# MZD Background Changer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with MZD Background Changer. If not, see <http://www.gnu.org/licenses/>.
+#
+
+bin_file="MZDBackgroundChanger"
+bridge_file="MZDBackgroundBridge"
+monitor_file="MZDBackgroundMonitor"
+backgrounds="MZDBackgrounds"
+
+storage_dir="/mnt/sda1"
+vehdata_dir="VehDataPull"
+
+log_head="\e[1;34m"
+log_end="\e[0m"
+
+find_path()
+{
+  dir=$(find /mnt/sd* -name cmu_dataretrieval.up)
+  dir=$(dirname $dir)
+  dir=$(basename $dir)
+  storage_dir="/mnt/$dir"
+  cd $storage_dir
+}
+
+copy_data()
+{
+  cp -rf Data/$bin_file /tmp
+  cp -rf Data/$bridge_file /tmp
+  cp -rf Data/$monitor_file /tmp
+  cp -rf Data/$backgrounds /tmp
+
+  chmod +x /tmp/$bin_file
+  chmod +x /tmp/$bridge_file
+  chmod +x /tmp/$monitor_file
+
+  rm -Rf /tmp/root/.android
+  mkdir /tmp/root/.android
+  chmod 755 /tmp/root/.android
+
+  cp -rf Keys/adbkey /tmp/root/.android
+  chmod 600 /tmp/root/.android/adbkey
+
+  cp -rf Keys/adbkey.pub /tmp/root/.android
+  chmod 644 /tmp/root/.android/adbkey.pub
+
+  rm -Rf $vehdata_dir
+}
+
+init_data()
+{
+  /jci/scripts/jci-fw.sh stop
+  /tmp/$bridge_file start-server
+}
+
+collect_data()
+{
+  # check 'whoami'
+  echo -en "\e[1;32m[$(date +"%T")]\e[0m $log_head whoami: $log_end"
+  whoami
+
+  # check 'home'
+  echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head home:$log_end $HOME"
+
+  # check 'passwd'
+  echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head passwd: $log_end"
+  cat /etc/passwd
+  echo ""
+}
+
+exit_function()
+{
+  /jci/scripts/jci-fw.sh start
+}
+
+# find path
+find_path
+
+# forward stdout and stderr
+# rm -Rf $storage_dir/Log/$bin_file-stage2.log
+# exec &> $storage_dir/Log/$bin_file-stage2.log
+
+# let's start
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head start:$log_end STAGE 2"
+
+# collect_data
+# collect_data
+
+# do some other import
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head preparing app:$log_end 50%"
+copy_data
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head preparing app:$log_end 100%"
+init_data
+
+# show intro that we are ready
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head starting intro $log_end"
+/usr/bin/splashplayer -q -z 100000 -t TEST_SURFACE $storage_dir/Data/MZDBackgroundLogo.ivf & ivi-shell -a TEST_SURFACE:255 & ivi-shell -z TEST_SURFACE:100000
+killall jci-dialog
+
+# start monitor
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head starting monitor $log_end"
+/tmp/$monitor_file &
+
+# that's it
+echo -e "\e[1;32m[$(date +"%T")]\e[0m $log_head end:$log_end STAGE 2"
+exit 0
